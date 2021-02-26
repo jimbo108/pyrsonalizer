@@ -1,24 +1,16 @@
 from typing import List, TypeVar, Generic, Optional, Dict
 import uuid
-import os
-import logging
-import yaml
-import pathlib
-from abc import ABC
-import abc
 
-from .actions import Action
-from . import utils
+from actions import Action
+import actions
 
 T = TypeVar("T")
-
-logger = logging.Logger(__file__)
 
 
 class TreeNode(Generic[T]):
     def __init__(self, value: T = None):
         self._child_nodes: List[TreeNode[T]] = []
-        self._visited: Dict[str, bool] = False
+        self._visited: Dict[str, bool] = {}
         self._value: Optional[T] = value
         self._parent_nodes: List[TreeNode[T]] = []
         self._index: int = 0
@@ -44,6 +36,10 @@ class TreeNode(Generic[T]):
         self._parent_nodes.append(parent_node)
 
     @property
+    def parents(self) -> List["TreeNode[T]"]:
+        return self._parent_nodes
+
+    @property
     def value(self) -> Optional[T]:
         return self._value
 
@@ -63,8 +59,9 @@ class TreeNode(Generic[T]):
 
 
 class ExecutionTree(object):
-    def __init__(self, execution_root: TreeNode[Action]):
+    def __init__(self, execution_root: TreeNode[Action], environment_conditions: List[actions.EnvironmentCondition]):
         self._root: TreeNode[Action] = execution_root
+        self._environment_conditions = environment_conditions
 
     def _get_leaves(self) -> List[TreeNode[Action]]:
         leaves = []
@@ -82,25 +79,19 @@ class ExecutionTree(object):
             leaves.append(node)
 
         for child in node.children:
-            self._get_leaves_inner(child, key)
+            self._get_leaves_inner(child, key, leaves)
 
         node.set_visited(key)
 
     def execute(self):
         leaves = self._get_leaves()
         for leaf_node in leaves:
-            leaf_node.value.execute()
+            self._execute_inner(leaf_node)
 
+    def _execute_inner(self, node: TreeNode[Action]) -> None:
+        node.value.execute()
+        for parent_node in node.parents:
+            self._execute_inner(parent_node)
 
-class Parser(object):
-    def __init__(self, path: pathlib.PurePath):
-        if not os.path.exists(path):
-            utils.log_and_raise(
-                logger.error, ValueError, f"Path {str(path)} does not exist."
-            )
-
-        with open(path) as fh:
-            self.dic = yaml.load(fh, Loader=yaml.BaseLoader)
-
-    def parse(self) -> ExecutionTree:
-        pass
+    def check_conditions(self):
+        raise NotImplementedError()
