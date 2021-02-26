@@ -53,8 +53,8 @@ class Dependency(Generic[T]):
 class Action(ABC):
     def __init__(self, key: int, dependency_keys: List[int] = []):
         self.dependencies: List[Dependency] = []
-        self.key: int = key
-        self.dependency_keys: List[int] = dependency_keys
+        self.key: str = key
+        self.dependency_keys: List[str] = dependency_keys
 
     @abc.abstractmethod
     def execute(self):
@@ -90,18 +90,20 @@ class FileSync(Action):
         file_source: FileLocation,
         local_path: pathlib.Path,
         overwrite: bool,
+        dependency_keys: List[str] = [],
     ):
         self.backend: FileSyncBackendType = backend
         self.file_source: FileLocation = file_source
         self.local_path: pathlib.Path = local_path
         self.overwrite: bool = overwrite
-        super().__init__(key)
+        super().__init__(key, dependency_keys=dependency_keys)
 
     def execute(self) -> bool:
         if not self.overwrite and self.local_path.resolve().is_file():
             return False
 
         if type(self.file_source) == LocalFileLocation:
+            breakpoint()
             shutil.copy(self.file_source.path, self.local_path)
             return True
         else:

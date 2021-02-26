@@ -89,7 +89,9 @@ class ExecutionTree(object):
             self._execute_inner(leaf_node)
 
     def _execute_inner(self, node: TreeNode[Action]) -> None:
-        node.value.execute()
+        success = node.value.execute()
+        if not success:
+            return
         for parent_node in node.parents:
             self._execute_inner(parent_node)
 

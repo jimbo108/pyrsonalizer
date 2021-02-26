@@ -86,6 +86,7 @@ def _build_dependency_tree(
     for action in action_list:
         if len(action.dependency_keys) > 0:
             try:
+                breakpoint()
                 any(
                     action.add_dependency(actions.Dependency(obj))
                     for obj in [object_mapping[key] for key in action.dependency_keys]
@@ -154,5 +155,5 @@ def parse_execution_tree(path: Union[pathlib.Path, os.PathLike]):
     parser_state = _parse_objects(config)
 
     _build_dependency_tree(parser_state.action_list, parser_state.key_object_mapping)
-    breakpoint()
+
     return _build_execution_tree(parser_state)
