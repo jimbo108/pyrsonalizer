@@ -4,12 +4,14 @@ import pathlib
 import os
 import logging
 from dataclasses import dataclass, field
+import uuid
 
 import utils
 import actions
 from execution_tree import ExecutionTree, TreeNode
 from actions import Action
 import node_parsers
+import errors
 
 import const
 
@@ -27,7 +29,7 @@ PARSER_MAP: Dict[Type, Callable] = {actions.FileSync: node_parsers.parse_file_sy
 @dataclass
 class ParserState:
     action_list: List[Action] = field(default_factory=lambda: [])
-    key_object_mapping: Dict[int, object] = field(default_factory=lambda: {})
+    key_object_mapping: Dict[str, object] = field(default_factory=lambda: {})
     object_node_mapping: Dict[Action, TreeNode[Action]] = field(
         default_factory=lambda: {}
     )
@@ -47,7 +49,22 @@ def _get_klass_for_node(node: str) -> Type:
     klass = KLASS_MAP.get(node, None)
     if klass is None:
         utils.log_and_raise(
-            logger.error, ValueError, f"Couldn't map yaml node {node} to a class."
+            logger.error,
+            ValueError,
+            f"Couldn't map yaml node {node} to a class.",
+            errors.TP_NO_CLASS_MAP,
+        )
+    return klass
+
+
+def _get_func_for_klass(klass: Type) -> Callable:
+    klass = PARSER_MAP.get(klass, None)
+    if klass is None:
+        utils.log_and_raise(
+            logger.error,
+            ValueError,
+            f"Couldn't map class {klass} to parser function",
+            errors.TP_NO_PARSER_FUNC_MAP,
         )
     return klass
 
@@ -55,7 +72,10 @@ def _get_klass_for_node(node: str) -> Type:
 def _get_config(path: Union[pathlib.Path, os.PathLike]) -> Dict[str, Any]:
     if not os.path.exists(path):
         utils.log_and_raise(
-            logger.error, ValueError, f"Path {str(path)} does not exist."
+            logger.error,
+            ValueError,
+            f"Path {str(path)} does not exist.",
+            errors.TP_PATH_DOES_NOT_EXIST,
         )
 
     with open(path) as fh:
@@ -68,7 +88,8 @@ def _parse_objects(
     parser_state = ParserState()
     for key in config.keys():
         klass = _get_klass_for_node(key)
-        parser_func = PARSER_MAP[klass]
+        parser_func = _get_func_for_klass(klass)
+
         for obj_config in config[key]:
             instance = parser_func(obj_config)
             if issubclass(klass, Action):
@@ -81,12 +102,11 @@ def _parse_objects(
 
 
 def _build_dependency_tree(
-    action_list: List[Action], object_mapping: Dict[int, object]
+    action_list: List[Action], object_mapping: Dict[str, object]
 ) -> None:
     for action in action_list:
         if len(action.dependency_keys) > 0:
             try:
-                breakpoint()
                 any(
                     action.add_dependency(actions.Dependency(obj))
                     for obj in [object_mapping[key] for key in action.dependency_keys]
@@ -96,6 +116,7 @@ def _build_dependency_tree(
                     logger.error,
                     KeyError,
                     f"Dependency key {err.args[0]} does not refer to an object that exists.",
+                    errors.TP_BAD_DEPENDENCY_REF
                 )
 
 
@@ -123,16 +144,17 @@ def _build_nodes(
 
 def _build_root(
     action_list: List[Action],
-    key_object_mapping: Dict[int, object],
+    key_object_mapping: Dict[str, object],
     object_node_mapping: Dict[Action, TreeNode[Action]],
 ) -> TreeNode[Action]:
-    actions_with_dependencies: Set[Action] = set()
+    non_dependency_actions: Set[Action] = set()
     for action in action_list:
-        if len(action.dependencies) > 0:
-            actions_with_dependencies.add(action)
+        for dep in action.dependencies:
+            key = dep.value.key
+            non_dependency_actions.add(key_object_mapping[key])
 
-    top_nodes = set(action_list) - actions_with_dependencies
-    unused_key = max([int(key) for key in key_object_mapping.keys()]) + 1
+    top_nodes = set(action_list) - non_dependency_actions
+    unused_key = str(uuid.uuid1())
     root_node: TreeNode[Action] = TreeNode(actions.NullAction(key=unused_key))
 
     any(root_node.add_child(object_node_mapping[node]) for node in top_nodes)

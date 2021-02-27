@@ -5,6 +5,7 @@ import pathlib
 import const
 import utils
 import actions
+import errors
 
 logger = logging.Logger(__name__)
 
@@ -26,6 +27,7 @@ def parse_file_sync(
             logger.error,
             ValueError,
             f"File sync config missing {const.LOCATION_TYPE_NODE}",
+            errors.NP_MISSING_LOCATION_TYPE,
         )
 
     dependency_keys = file_sync_config.get(const.DEPENDENCY, [])
@@ -33,7 +35,10 @@ def parse_file_sync(
     location_type = file_sync_config[const.LOCATION_TYPE_NODE]
     if any(node not in file_sync_config for node in REQUIRED_FS_NODES[location_type]):
         utils.log_and_raise(
-            logger.error, ValueError, "File sync config missing some required elements"
+            logger.error,
+            ValueError,
+            "File sync config missing some required elements",
+            errors.NP_MISSING_FILE_SYNC_CONFIG,
         )
 
     backend = None
@@ -47,7 +52,7 @@ def parse_file_sync(
                 pathlib.Path(file_sync_config[const.SOURCE_FILE_PATH])
             ),
             local_path=pathlib.Path(file_sync_config[const.DEST_FILE_PATH]),
-            overwrite=file_sync_config.get(const.OVERWRITE, None),
+            overwrite=file_sync_config.get(const.OVERWRITE, False),
             key=file_sync_config[const.NODE_KEY],
             dependency_keys=dependency_keys,
         )

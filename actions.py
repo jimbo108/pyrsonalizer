@@ -36,6 +36,9 @@ class LocalFileLocation(FileLocation):
         with open(self.path) as fh:
             return fh.read()
 
+    def __eq__(self, other) -> bool:
+        return self.path == other.path
+
 
 class FileExistsException(BaseException):
     pass
@@ -51,10 +54,12 @@ class Dependency(Generic[T]):
 
 
 class Action(ABC):
-    def __init__(self, key: int, dependency_keys: List[int] = []):
+    def __init__(self, key: str, dependency_keys: Optional[List[str]] = None):
         self.dependencies: List[Dependency] = []
         self.key: str = key
-        self.dependency_keys: List[str] = dependency_keys
+        self.dependency_keys: List[str] = (
+            dependency_keys if dependency_keys is not None else []
+        )
 
     @abc.abstractmethod
     def execute(self):
@@ -70,8 +75,10 @@ class Action(ABC):
 
 class NullAction(Action):
     """Will use this class for the root of the execution tree."""
+
     def execute(self):
         return True
+
 
 class Installation(Action):
     def execute(self):
@@ -85,12 +92,12 @@ class EnvironmentCondition(object):
 class FileSync(Action):
     def __init__(
         self,
-        key: int,
+        key: str,
         backend: FileSyncBackendType,
         file_source: FileLocation,
         local_path: pathlib.Path,
         overwrite: bool,
-        dependency_keys: List[str] = [],
+        dependency_keys: Optional[List[str]] = None,
     ):
         self.backend: FileSyncBackendType = backend
         self.file_source: FileLocation = file_source
@@ -103,7 +110,6 @@ class FileSync(Action):
             return False
 
         if type(self.file_source) == LocalFileLocation:
-            breakpoint()
             shutil.copy(self.file_source.path, self.local_path)
             return True
         else:
