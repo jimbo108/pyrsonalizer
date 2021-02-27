@@ -3,24 +3,24 @@ import pathlib
 
 import pytest
 
-import tree_parser
+import graph_parser
 import errors
 import actions
 import const
-from execution_tree import ExecutionTree
-import execution_tree
+from execution_graph import ExecutionGraph
+import execution_graph
 
 
 @pytest.fixture
 def mock_path_exists_dne(mocker):
-    mock = mocker.patch("tree_parser.os.path.exists")
+    mock = mocker.patch("graph_parser.os.path.exists")
     mock.return_value = False
     return mock
 
 
 @pytest.fixture
 def mock_path_exists_happy(mocker):
-    mock = mocker.patch("tree_parser.os.path.exists")
+    mock = mocker.patch("graph_parser.os.path.exists")
     mock.return_value = True
 
 
@@ -36,7 +36,7 @@ def mock_log_and_raise_func(
 @pytest.fixture(autouse=True)
 def mock_log_and_raise(mocker):
     mock = mocker.patch(
-        "tree_parser.utils.log_and_raise",
+        "graph_parser.utils.log_and_raise",
     )
     mock.side_effect = mock_log_and_raise_func
 
@@ -45,13 +45,13 @@ def mock_log_and_raise(mocker):
 
 @pytest.fixture
 def mock_get_config_bad_klass(mocker):
-    mock = mocker.patch("tree_parser._get_config")
+    mock = mocker.patch("graph_parser._get_config")
     mock.return_value = {"bad_key": {}}
 
 
 @pytest.fixture
 def mock_get_config_bad_deps(mocker):
-    mock = mocker.patch("tree_parser._get_config")
+    mock = mocker.patch("graph_parser._get_config")
     mock.return_value = {
         "file_syncs": [
             {
@@ -73,7 +73,7 @@ def mock_get_config_bad_deps(mocker):
 
 @pytest.fixture
 def mock_get_config_happy_deps(mocker):
-    mock = mocker.patch("tree_parser._get_config")
+    mock = mocker.patch("graph_parser._get_config")
     mock.return_value = {
         "file_syncs": [
             {
@@ -95,7 +95,7 @@ def mock_get_config_happy_deps(mocker):
 
 @pytest.fixture
 def mock_get_config_happy(mocker):
-    mock = mocker.patch("tree_parser._get_config")
+    mock = mocker.patch("graph_parser._get_config")
     mock.return_value = {
         "file_syncs": [
            {
@@ -108,40 +108,40 @@ def mock_get_config_happy(mocker):
         ]
     }
 
-class TestTreeParserLocal:
+class TestGraphParserLocal:
     def test_path_does_not_exist__raises(self, mock_log_and_raise):
         test_path = "path"
         with pytest.raises(ValueError):
-            tree_parser.parse_execution_tree(pathlib.Path(test_path))
+            graph_parser.parse_execution_graph(pathlib.Path(test_path))
 
         call_args = mock_log_and_raise.call_args[0]
-        assert errors.TP_PATH_DOES_NOT_EXIST in call_args
+        assert errors.GP_PATH_DOES_NOT_EXIST in call_args
 
     def test_no_class_mapping__raises(self, mock_log_and_raise, mock_get_config_bad_klass):
         test_path = "path"
         with pytest.raises(ValueError):
-            tree_parser.parse_execution_tree(pathlib.Path(test_path))
+            graph_parser.parse_execution_graph(pathlib.Path(test_path))
 
         call_args = mock_log_and_raise.call_args[0]
-        assert errors.TP_NO_CLASS_MAP in call_args
+        assert errors.GP_NO_CLASS_MAP in call_args
 
     def test_bad_dependency_ref__raises(self, mock_log_and_raise, mock_get_config_bad_deps):
         test_path = "path"
         with pytest.raises(KeyError):
-            tree_parser.parse_execution_tree(pathlib.Path(test_path))
+            graph_parser.parse_execution_graph(pathlib.Path(test_path))
 
         call_args = mock_log_and_raise.call_args[0]
-        assert errors.TP_BAD_DEPENDENCY_REF in call_args
+        assert errors.GP_BAD_DEPENDENCY_REF in call_args
 
     def test_happy_path(self, mock_get_config_happy):
-        result_tree = None
+        result_graph = None
         try:
-            result_tree = tree_parser.parse_execution_tree("test_path")
+            result_graph = graph_parser.parse_execution_graph(pathlib.Path("test_path"))
         except BaseException as err:
             pytest.fail()
 
-        assert isinstance(result_tree._root, execution_tree.TreeNode)
-        children = result_tree._root.children
+        assert isinstance(result_graph._root, execution_graph.GraphNode)
+        children = result_graph._root.children
         assert len(children) == 1
         child = children[0]
 
@@ -151,14 +151,14 @@ class TestTreeParserLocal:
         assert child.value.overwrite is False
 
     def test_happy_path_with_deps(self, mock_get_config_happy_deps):
-        result_tree = None
+        result_graph = None
         try:
-            result_tree = tree_parser.parse_execution_tree(pathlib.Path("test_path"))
+            result_graph = graph_parser.parse_execution_graph(pathlib.Path("test_path"))
         except BaseException as err:
             pytest.fail()
 
-        assert isinstance(result_tree._root, execution_tree.TreeNode)
-        children = result_tree._root.children
+        assert isinstance(result_graph._root, execution_graph.GraphNode)
+        children = result_graph._root.children
         assert len(children) == 1
         child = children[0]
 

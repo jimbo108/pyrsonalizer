@@ -8,7 +8,7 @@ import uuid
 
 import utils
 import actions
-from execution_tree import ExecutionTree, TreeNode
+from execution_graph import ExecutionGraph, GraphNode
 from actions import Action
 import node_parsers
 import errors
@@ -30,7 +30,7 @@ PARSER_MAP: Dict[Type, Callable] = {actions.FileSync: node_parsers.parse_file_sy
 class ParserState:
     action_list: List[Action] = field(default_factory=lambda: [])
     key_object_mapping: Dict[str, object] = field(default_factory=lambda: {})
-    object_node_mapping: Dict[Action, TreeNode[Action]] = field(
+    object_node_mapping: Dict[Action, GraphNode[Action]] = field(
         default_factory=lambda: {}
     )
     condition_list: List[actions.EnvironmentCondition] = field(
@@ -41,7 +41,7 @@ class ParserState:
 def _handle_add_action(action: Action, parser_state: ParserState) -> None:
     parser_state.action_list.append(action)
     parser_state.key_object_mapping[action.key] = action
-    node = TreeNode(value=action)
+    node = GraphNode(value=action)
     parser_state.object_node_mapping[action] = node
 
 
@@ -52,7 +52,7 @@ def _get_klass_for_node(node: str) -> Type:
             logger.error,
             ValueError,
             f"Couldn't map yaml node {node} to a class.",
-            errors.TP_NO_CLASS_MAP,
+            errors.GP_NO_CLASS_MAP,
         )
     return klass
 
@@ -64,7 +64,7 @@ def _get_func_for_klass(klass: Type) -> Callable:
             logger.error,
             ValueError,
             f"Couldn't map class {klass} to parser function",
-            errors.TP_NO_PARSER_FUNC_MAP,
+            errors.GP_NO_PARSER_FUNC_MAP,
         )
     return klass
 
@@ -75,7 +75,7 @@ def _get_config(path: Union[pathlib.Path, os.PathLike]) -> Dict[str, Any]:
             logger.error,
             ValueError,
             f"Path {str(path)} does not exist.",
-            errors.TP_PATH_DOES_NOT_EXIST,
+            errors.GP_PATH_DOES_NOT_EXIST,
         )
 
     with open(path) as fh:
@@ -101,7 +101,7 @@ def _parse_objects(
     return parser_state
 
 
-def _build_dependency_tree(
+def _build_dependency_graph(
     action_list: List[Action], object_mapping: Dict[str, object]
 ) -> None:
     for action in action_list:
@@ -116,12 +116,12 @@ def _build_dependency_tree(
                     logger.error,
                     KeyError,
                     f"Dependency key {err.args[0]} does not refer to an object that exists.",
-                    errors.TP_BAD_DEPENDENCY_REF
+                    errors.GP_BAD_DEPENDENCY_REF
                 )
 
 
 def _build_nodes(
-    action_list: List[Action], object_node_mapping: Dict[Action, TreeNode[Action]]
+    action_list: List[Action], object_node_mapping: Dict[Action, GraphNode[Action]]
 ) -> None:
     for action in action_list:
         if len(action.dependencies) > 0:
@@ -138,15 +138,15 @@ def _build_nodes(
                 utils.log_and_raise(
                     logger.error,
                     KeyError,
-                    f"Coudldn't find execution tree node for object with key {err.args[0]}",
+                    f"Coudldn't find execution graph node for object with key {err.args[0]}",
                 )
 
 
 def _build_root(
     action_list: List[Action],
     key_object_mapping: Dict[str, object],
-    object_node_mapping: Dict[Action, TreeNode[Action]],
-) -> TreeNode[Action]:
+    object_node_mapping: Dict[Action, GraphNode[Action]],
+) -> GraphNode[Action]:
     non_dependency_actions: Set[Action] = set()
     for action in action_list:
         for dep in action.dependencies:
@@ -155,27 +155,27 @@ def _build_root(
 
     top_nodes = set(action_list) - non_dependency_actions
     unused_key = str(uuid.uuid1())
-    root_node: TreeNode[Action] = TreeNode(actions.NullAction(key=unused_key))
+    root_node: GraphNode[Action] = GraphNode(actions.NullAction(key=unused_key))
 
     any(root_node.add_child(object_node_mapping[node]) for node in top_nodes)
     return root_node
 
 
-def _build_execution_tree(parser_state: ParserState) -> ExecutionTree:
+def _build_execution_graph(parser_state: ParserState) -> ExecutionGraph:
     _build_nodes(parser_state.action_list, parser_state.object_node_mapping)
     root = _build_root(
         parser_state.action_list,
         parser_state.key_object_mapping,
         parser_state.object_node_mapping,
     )
-    return ExecutionTree(root, parser_state.condition_list)
+    return ExecutionGraph(root, parser_state.condition_list)
 
 
-def parse_execution_tree(path: Union[pathlib.Path, os.PathLike]):
+def parse_execution_graph(path: Union[pathlib.Path, os.PathLike]):
     config = _get_config(path)
 
     parser_state = _parse_objects(config)
 
-    _build_dependency_tree(parser_state.action_list, parser_state.key_object_mapping)
+    _build_dependency_graph(parser_state.action_list, parser_state.key_object_mapping)
 
-    return _build_execution_tree(parser_state)
+    return _build_execution_graph(parser_state)

@@ -7,6 +7,8 @@ import pathlib
 import logging
 import shutil
 
+import utils
+
 import const
 
 logger = logging.Logger(__file__)
@@ -53,6 +55,10 @@ class Dependency(Generic[T]):
         self.value: T = value
 
 
+class ActionFailureException(BaseException):
+    pass
+
+
 class Action(ABC):
     def __init__(self, key: str, dependency_keys: Optional[List[str]] = None):
         self.dependencies: List[Dependency] = []
@@ -74,8 +80,7 @@ class Action(ABC):
 
 
 class NullAction(Action):
-    """Will use this class for the root of the execution tree."""
-
+    """Will use this class for the root of the execution graph."""
     def execute(self):
         return True
 
@@ -107,21 +112,14 @@ class FileSync(Action):
 
     def execute(self) -> bool:
         if not self.overwrite and self.local_path.resolve().is_file():
-            return False
+            utils.log_and_raise(
+                logger.error,
+                ActionFailureException,
+                f"File exists at {self.local_path} and overwrite is not set to true.",
+            )
 
         if type(self.file_source) == LocalFileLocation:
             shutil.copy(self.file_source.path, self.local_path)
             return True
         else:
             raise NotImplementedError()
-
-    def download(self) -> None:
-        # TODO: Probably get rid of this
-        file_content = self.file_source.get_file_content()
-        if not self.overwrite and os.path.exists(self.local_path):
-            raise FileExistsException()
-
-        try:
-            self.file_source.get_file_content()
-        except FileLocationInvalidException as err:
-            logger.error(err)
