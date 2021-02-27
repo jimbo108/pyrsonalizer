@@ -7,7 +7,6 @@ parser.add_argument("--path", type=str)
 
 
 def main():
-    breakpoint()
     args = parser.parse_args()
     execution_tree = tree_parser.parse_execution_tree(args.path)
     execution_tree.execute()
