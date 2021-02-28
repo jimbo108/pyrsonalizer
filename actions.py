@@ -9,7 +9,7 @@ import logging
 import shutil
 
 import utils
-
+from execution_context import ExecutionContext
 import const
 
 logger = logging.Logger(__file__)
@@ -98,7 +98,7 @@ class Action(ABC):
         )
 
     @abc.abstractmethod
-    def execute(self):
+    def execute(self, exec_context: ExecutionContext):
         """Run the action."""
         raise NotImplementedError()
 
@@ -121,7 +121,7 @@ class Action(ABC):
 class NullAction(Action):
     """Will use this class for the root of the execution graph."""
 
-    def execute(self):
+    def execute(self, exec_context: ExecutionContext):
         """This action is not intended to do anything."""
         return True
 
@@ -132,13 +132,13 @@ class Installation(Action):
     TODO: Implement
     """
 
-    def execute(self):
+    def execute(self, exec_context: ExecutionContext):
         """See base class."""
         raise NotImplementedError()
 
 
 class EnvironmentCondition(object):
-    """An conditionn of the environment specified by the user that is required for actions in this exection graph to run
+    """An condition of the environment specified by the user that is required for actions in this exection graph to run
     successfully."""
 
     pass
@@ -167,13 +167,13 @@ class FileSync(Action):
         overwrite: bool,
         dependency_keys: Optional[List[str]] = None,
     ):
+        super().__init__(key, dependency_keys=dependency_keys)
         self.backend: FileSyncBackendType = backend
         self.file_source: FileLocation = file_source
         self.local_path: pathlib.Path = local_path
         self.overwrite: bool = overwrite
-        super().__init__(key, dependency_keys=dependency_keys)
 
-    def execute(self) -> bool:
+    def execute(self, exec_context: ExecutionContext) -> bool:
         """Attempts to copy the source file to the destination.
 
         Currently assumes a local file source. Will need to be changed later TODO.

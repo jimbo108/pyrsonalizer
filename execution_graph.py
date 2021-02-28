@@ -6,6 +6,7 @@ from actions import Action
 import actions
 import utils
 import errors
+from execution_context import ExecutionContext
 
 T = TypeVar("T")
 
@@ -111,7 +112,7 @@ class ExecutionGraph(object):
         self._root: GraphNode[Action] = execution_root
         self._environment_conditions = environment_conditions
 
-    def execute(self):
+    def execute(self, exec_context: ExecutionContext):
         """Executes all actions after getting a topological sort.
 
         Not tolerant to any individual node failure. Actions should be written in an idempotent way, as the execution
@@ -123,7 +124,7 @@ class ExecutionGraph(object):
         # TODO: Consider allowing partial executions again
         for node in execute_order:
             try:
-                node.value.execute()
+                node.value.execute(exec_context)
             except actions.ActionFailureException as err:
                 raise err
 
