@@ -151,7 +151,7 @@ class TestGraphParserLocal:
 
         assert child.value.backend == actions.FileSyncBackendType.local
         assert str(child.value.file_source.path) == "source_path"
-        assert str(child.value.local_path) == "dest_path"
+        assert str(child.value.dest_path) == "dest_path"
         assert child.value.overwrite is False
 
     def test_happy_path_with_deps(self, mock_get_config_happy_deps):
@@ -168,7 +168,7 @@ class TestGraphParserLocal:
 
         assert child.value.backend == actions.FileSyncBackendType.local
         assert str(child.value.file_source.path) == "source_path"
-        assert str(child.value.local_path) == "dest_path"
+        assert str(child.value.dest_path) == "dest_path"
         assert child.value.overwrite is False
         assert child.value.key == "key_one"
 
@@ -176,6 +176,6 @@ class TestGraphParserLocal:
 
         assert grandchild.value.backend == actions.FileSyncBackendType.local
         assert str(grandchild.value.file_source.path) == "source_path"
-        assert str(grandchild.value.local_path) == "dest_path"
+        assert str(grandchild.value.dest_path) == "dest_path"
         assert grandchild.value.overwrite is False
         assert grandchild.value.key == "key_two"

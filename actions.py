@@ -35,6 +35,15 @@ class FileLocation(ABC):
         """An abstract method intended to return file content for all child classes."""
         pass
 
+    @abc.abstractmethod
+    def get_file_path(self) -> pathlib.Path:
+        """An abstract method intended to return the path of a file with the content
+        from this file source.
+
+        In some cases this will be content copied to a temp file.
+        """
+        pass
+
 
 class LocalFileLocation(FileLocation):
     """Child class of file location representing a local file source.
@@ -50,6 +59,9 @@ class LocalFileLocation(FileLocation):
         """See base class."""
         with open(self.path) as fh:
             return fh.read()
+
+    def get_file_path(self) -> pathlib.Path:
+        return self.path
 
     def __eq__(self, other) -> bool:
         return self.path == other.path
@@ -154,7 +166,7 @@ class FileSync(Action):
         backend: The type of source for the file being synced. Currently only local is supported.
         file_source: An object representing the location of a source file.
         local_path: The local path where the file should be stored.
-        overwrite: Whether or not a local file at self.local_path should be overwritten
+        overwrite: Whether or not a local file at self.dest_path should be overwritten
         dependency_keys: See base class.
     """
 
@@ -170,13 +182,13 @@ class FileSync(Action):
         super().__init__(key, dependency_keys=dependency_keys)
         self.backend: FileSyncBackendType = backend
         self.file_source: FileLocation = file_source
-        self.local_path: pathlib.Path = local_path
+        self.dest_path: pathlib.Path = local_path
         self.overwrite: bool = overwrite
 
-    def execute(self, exec_context: ExecutionContext) -> bool:
+    def execute(self, exec_context: ExecutionContext) -> None:
         """Attempts to copy the source file to the destination.
 
-        Currently assumes a local file source. Will need to be changed later TODO.
+        Gets a source file from self.file_source, an example of the Adapter pattern.
 
         Returns:
             True of the execution was successful.
@@ -184,15 +196,13 @@ class FileSync(Action):
         Raises:
             ActionFailureException: An error occurred executing this action.
         """
-        if not self.overwrite and self.local_path.resolve().is_file():
+        source_path = self.file_source.get_file_path()
+
+        if not self.overwrite and self.dest_path.resolve().is_file():
             utils.log_and_raise(
                 logger.error,
                 ActionFailureException,
-                f"File exists at {self.local_path} and overwrite is not set to true.",
+                f"File exists at {self.dest_path} and overwrite is not set to true.",
             )
 
-        if type(self.file_source) == LocalFileLocation:
-            shutil.copy(self.file_source.path, self.local_path)
-            return True
-        else:
-            raise NotImplementedError()
+        shutil.copy(source_path, self.dest_path)
