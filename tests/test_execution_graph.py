@@ -7,6 +7,7 @@ from actions import Action
 
 VISITED_COUNT = 0
 
+
 class TestAction(Action):
     def execute(self):
         global VISITED_COUNT
@@ -14,7 +15,6 @@ class TestAction(Action):
 
 
 class TestExecutionGraph:
-
     def test_circular_dependency__raises(self):
         node_one = execution_graph.GraphNode(TestAction("1"))
         node_two = execution_graph.GraphNode(TestAction("2"))

@@ -1,3 +1,8 @@
+"""Contains parsing functions or classes for each type of node in the execution tree.
+
+This exists separately from the __init__ methods of those nodes in order to decouple
+changes to the input file from the classes themselves.
+"""
 import logging
 from typing import Dict, Union
 import pathlib
@@ -19,6 +24,7 @@ LOCATION_TYPES = [const.LOCATION_TYPE_LOCAL]
 def parse_file_sync(
     file_sync_config: Dict[str, Union[str, bool, int]]
 ) -> actions.FileSync:
+    """Creates an Action object from configuration."""
     if (
         const.LOCATION_TYPE_NODE not in file_sync_config
         or file_sync_config[const.LOCATION_TYPE_NODE] not in LOCATION_TYPES

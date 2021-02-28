@@ -1,4 +1,9 @@
-"""
+"""Stores error keys to identify unique errors.
+
+This is intended to:
+    1. Make unit testing easier by avoiding formatted string comparisons.
+    2. Make a transition to to some metric framework easier.
+
 NP = node_parsers
 GP = graph_parser
 EG = execution_graph
@@ -16,4 +21,6 @@ EG_IMPOSSIBLE_STATE = "eg_impossible_state"
 
 
 class ImpossibleStateException(BaseException):
+    """Represents an impossible state occurring due to a programming error or unforeseen input."""
+
     pass

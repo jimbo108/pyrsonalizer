@@ -59,17 +59,17 @@ def mock_get_config_bad_deps(mocker):
                 const.SOURCE_FILE_PATH: "source_path",
                 const.DEST_FILE_PATH: "dest_path",
                 const.NODE_KEY: "key_one",
-                const.DEPENDENCY: ["key_three"]
+                const.DEPENDENCY: ["key_three"],
             },
             {
                 const.LOCATION_TYPE_NODE: const.LOCATION_TYPE_LOCAL,
                 const.SOURCE_FILE_PATH: "source_path",
                 const.DEST_FILE_PATH: "dest_path",
                 const.NODE_KEY: "key_two",
-            }
-
+            },
         ]
     }
+
 
 @pytest.fixture
 def mock_get_config_happy_deps(mocker):
@@ -81,32 +81,32 @@ def mock_get_config_happy_deps(mocker):
                 const.SOURCE_FILE_PATH: "source_path",
                 const.DEST_FILE_PATH: "dest_path",
                 const.NODE_KEY: "key_one",
-                const.DEPENDENCY: ["key_two"]
+                const.DEPENDENCY: ["key_two"],
             },
             {
                 const.LOCATION_TYPE_NODE: const.LOCATION_TYPE_LOCAL,
                 const.SOURCE_FILE_PATH: "source_path",
                 const.DEST_FILE_PATH: "dest_path",
                 const.NODE_KEY: "key_two",
-            }
-
+            },
         ]
     }
+
 
 @pytest.fixture
 def mock_get_config_happy(mocker):
     mock = mocker.patch("graph_parser._get_config")
     mock.return_value = {
         "file_syncs": [
-           {
+            {
                 const.LOCATION_TYPE_NODE: const.LOCATION_TYPE_LOCAL,
                 const.SOURCE_FILE_PATH: "source_path",
                 const.DEST_FILE_PATH: "dest_path",
                 const.NODE_KEY: "key_two",
             }
-
         ]
     }
+
 
 class TestGraphParserLocal:
     def test_path_does_not_exist__raises(self, mock_log_and_raise):
@@ -117,7 +117,9 @@ class TestGraphParserLocal:
         call_args = mock_log_and_raise.call_args[0]
         assert errors.GP_PATH_DOES_NOT_EXIST in call_args
 
-    def test_no_class_mapping__raises(self, mock_log_and_raise, mock_get_config_bad_klass):
+    def test_no_class_mapping__raises(
+        self, mock_log_and_raise, mock_get_config_bad_klass
+    ):
         test_path = "path"
         with pytest.raises(ValueError):
             graph_parser.parse_execution_graph(pathlib.Path(test_path))
@@ -125,7 +127,9 @@ class TestGraphParserLocal:
         call_args = mock_log_and_raise.call_args[0]
         assert errors.GP_NO_CLASS_MAP in call_args
 
-    def test_bad_dependency_ref__raises(self, mock_log_and_raise, mock_get_config_bad_deps):
+    def test_bad_dependency_ref__raises(
+        self, mock_log_and_raise, mock_get_config_bad_deps
+    ):
         test_path = "path"
         with pytest.raises(KeyError):
             graph_parser.parse_execution_graph(pathlib.Path(test_path))
