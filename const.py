@@ -1,3 +1,4 @@
+"""Stores constants."""
 LOCATION_TYPE_NODE = "location_type"
 REPOSITORY = "repository"
 NODE_KEY = "key"

@@ -13,6 +13,18 @@ logger = logging.Logger(__file__)
 
 
 class GraphNode(Generic[T]):
+    """Represents a single node in a directed graph.
+
+    One unique feature is the way that visits are tracked. Visits are tracked in the
+    context of a unique value, so that subsequent visits can be tracked without
+    traversing the graph and resetting.
+
+    Attributes:
+        parents: The GraphNodes that point to this GraphNode.
+        children: The GraphNodes that this GraphNode points to.
+        value: The value contained by this node.
+    """
+
     def __init__(self, value: T = None):
         self._child_nodes: List[GraphNode[T]] = []
         self._visited: Dict[str, bool] = {}
@@ -57,16 +69,40 @@ class GraphNode(Generic[T]):
         return self._child_nodes
 
     def was_visited(self, key: str) -> bool:
+        """Determines if the graph was visited with the visit key 'key'.
+
+        Args:
+            key: See class docstring.
+
+        Returns:
+            True if the node was visited with the given key.
+        """
         return self._visited.get(key, False)
 
     def set_visited(self, key: str) -> None:
+        """Sets the node as visited in the context of `key`.
+
+        Args:
+            key: See class docstring.
+        """
         self._visited[key] = True
 
 
 class CircularDependencyException(BaseException):
     pass
 
+
 class ExecutionGraph(object):
+    """A graph that allows actions to be executed in an order that is appropriate given
+       dependencies.
+
+    Attributes:
+         execution_root: An artificial "root" that contains pointers to all real actions
+            without incoming edges, in order to create a topological ordering.
+        environment_conditions: The global conditions necessary for the execution graph
+            to run. Not yet implemented.
+    """
+
     def __init__(
         self,
         execution_root: GraphNode[Action],
@@ -76,6 +112,11 @@ class ExecutionGraph(object):
         self._environment_conditions = environment_conditions
 
     def execute(self):
+        """Executes all actions after getting a topological sort.
+
+        Not tolerant to any individual node failure. Actions should be written in an idempotent way, as the execution
+        graph has no way to roll back on failure.
+        """
         topological_sort = self.get_topological_sort()
         execute_order = reversed(topological_sort)
 
@@ -86,7 +127,11 @@ class ExecutionGraph(object):
             except actions.ActionFailureException as err:
                 raise err
 
-    def get_topological_sort(self):
+    def get_topological_sort(self) -> List[GraphNode[Action]]:
+        """Get's the topological sort to account for dependencies.
+
+        Uses a modified version of Kahn's algorithm.
+        """
         active_list = [self._root]
         sorted_list: List[GraphNode[Action]] = []
         known_node_count = self._get_num_nodes()
@@ -136,37 +181,7 @@ class ExecutionGraph(object):
 
         return node_count
 
-    def _get_leaves(self) -> List[GraphNode[Action]]:
-        leaves = []
-        visited_key = str(uuid.uuid1())
-        self._get_leaves_inner(self._root, visited_key, leaves)
-        return leaves
-
-    def _get_leaves_inner(
-        self, node: GraphNode[Action], key: str, leaves: List[GraphNode[Action]]
-    ):
-        if node.was_visited(key):
-            return
-
-        if len(node.children) == 0:
-            leaves.append(node)
-
-        for child in node.children:
-            self._get_leaves_inner(child, key, leaves)
-
-        node.set_visited(key)
-
-    def execute_old(self):
-        leaves = self._get_leaves()
-        for leaf_node in leaves:
-            self._execute_inner(leaf_node)
-
-    def _execute_inner(self, node: GraphNode[Action]) -> None:
-        success = node.value.execute()
-        if not success:
-            return
-        for parent_node in node.parents:
-            self._execute_inner(parent_node)
-
     def check_conditions(self):
+        """Runs EnvironmentConditions to ensure that all are met for the execution graph
+        to run."""
         raise NotImplementedError()

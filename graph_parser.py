@@ -1,3 +1,6 @@
+"""This module contains functions to parse an ExecutionGraph class from the user input
+configuration."""
+
 from typing import Any, Type, Union, Set, List, Dict, Callable
 import yaml
 import pathlib
@@ -13,8 +16,6 @@ from actions import Action
 import node_parsers
 import errors
 
-import const
-
 logger = logging.Logger(__file__)
 
 KLASS_MAP = {
@@ -28,6 +29,18 @@ PARSER_MAP: Dict[Type, Callable] = {actions.FileSync: node_parsers.parse_file_sy
 
 @dataclass
 class ParserState:
+    """Maintains state for parsing the execution graph.
+
+    ParserState is a container created for convenience, to tie the parser state together
+    in one place and avoid excessive parameter passing.
+
+    Attributes:
+         action_list: The list of all actions in no particular order.
+         key_object_mapping: Maps an action's `key` to the action itself.
+         object_node_mapping: Maps an Action object to the GraphNode that contains it.
+         condition_list: The list of all environment conditions in no particular order.
+    """
+
     action_list: List[Action] = field(default_factory=lambda: [])
     key_object_mapping: Dict[str, object] = field(default_factory=lambda: {})
     object_node_mapping: Dict[Action, GraphNode[Action]] = field(
@@ -46,6 +59,7 @@ def _handle_add_action(action: Action, parser_state: ParserState) -> None:
 
 
 def _get_klass_for_node(node: str) -> Type:
+    """Gets the class associated with a top-level configuration node like "file_syncs"."""
     klass = KLASS_MAP.get(node, None)
     if klass is None:
         utils.log_and_raise(
@@ -58,6 +72,17 @@ def _get_klass_for_node(node: str) -> Type:
 
 
 def _get_func_for_klass(klass: Type) -> Callable:
+    """Gets the parser function for a given class `klass`.
+
+    This strategy intends to better encapsulate changes to the input file format,
+    avoiding changes to the underlying action class's __init__ as a result.
+
+    Args:
+        klass: The class to map
+
+    Returns:
+        A parser function that returns an instance of `klass`.
+    """
     klass = PARSER_MAP.get(klass, None)
     if klass is None:
         utils.log_and_raise(
@@ -85,6 +110,16 @@ def _get_config(path: Union[pathlib.Path, os.PathLike]) -> Dict[str, Any]:
 def _parse_objects(
     config: Dict[str, Any],
 ) -> ParserState:
+    """Iterates over the input configuration and creates objects.
+
+    This function is not responsible for tying these objecs together in any way.
+
+    Args:
+        config: The input config.
+
+    Returns:
+        A ParserState object containing additioanl actions and conditions.
+    """
     parser_state = ParserState()
     for key in config.keys():
         klass = _get_klass_for_node(key)
@@ -104,6 +139,12 @@ def _parse_objects(
 def _build_dependency_graph(
     action_list: List[Action], object_mapping: Dict[str, object]
 ) -> None:
+    """Builds the Dependency objects from Action.dependency_keys for each action.
+
+    Args:
+        action_list: The list of all actions.
+        object_mapping: Mapping from action.key to action instance.
+    """
     for action in action_list:
         if len(action.dependency_keys) > 0:
             try:
@@ -116,13 +157,19 @@ def _build_dependency_graph(
                     logger.error,
                     KeyError,
                     f"Dependency key {err.args[0]} does not refer to an object that exists.",
-                    errors.GP_BAD_DEPENDENCY_REF
+                    errors.GP_BAD_DEPENDENCY_REF,
                 )
 
 
 def _build_nodes(
     action_list: List[Action], object_node_mapping: Dict[Action, GraphNode[Action]]
 ) -> None:
+    """Builds GraphNodes based on actions with dependencies.
+
+    Args:
+        action_list: The list of all actions.
+        object_node_mapping: A mapping from action instance to the GraphNode instance that contains it.
+    """
     for action in action_list:
         if len(action.dependencies) > 0:
             try:
@@ -147,6 +194,18 @@ def _build_root(
     key_object_mapping: Dict[str, object],
     object_node_mapping: Dict[Action, GraphNode[Action]],
 ) -> GraphNode[Action]:
+    """Attaches a root that depends on all actions with no existing dependencies.
+
+    This is for convenience. See execution_graph.ExecutionGraph for details.
+
+    Args:
+        action_list: The list of all actions.
+        key_object_mapping: The mapping from action.key to Action instance.
+        object_node_mapping: The mapping from Action instance to GraphNode instance.
+
+    Returns:
+        A GraphNode containing the root action.
+    """
     non_dependency_actions: Set[Action] = set()
     for action in action_list:
         for dep in action.dependencies:
@@ -162,6 +221,7 @@ def _build_root(
 
 
 def _build_execution_graph(parser_state: ParserState) -> ExecutionGraph:
+    """Builds the execution tree after actions and dependencies are isntantiated."""
     _build_nodes(parser_state.action_list, parser_state.object_node_mapping)
     root = _build_root(
         parser_state.action_list,
@@ -171,7 +231,21 @@ def _build_execution_graph(parser_state: ParserState) -> ExecutionGraph:
     return ExecutionGraph(root, parser_state.condition_list)
 
 
-def parse_execution_graph(path: Union[pathlib.Path, os.PathLike]):
+def parse_execution_graph(path: Union[pathlib.Path, os.PathLike]) -> ExecutionGraph:
+    """Creates an ExecutionGraph from configuration input.
+
+    Does so by:
+        1. Parsing config from YAML file
+        2. Building actions
+        3. Building dependencies between actions
+        4. Using action dependencies to construct a directed graph
+
+    Args:
+         path: The path of the input file.
+
+    Returns:
+        The complete ExecutionGraph.
+    """
     config = _get_config(path)
 
     parser_state = _parse_objects(config)

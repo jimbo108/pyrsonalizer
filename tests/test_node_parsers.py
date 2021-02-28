@@ -40,7 +40,7 @@ class TestParseFileSync:
     def test_local_missing_required__log_and_raise(self, mock_log_and_raise):
         test_file_sync_config = {
             const.LOCATION_TYPE_NODE: const.LOCATION_TYPE_LOCAL,
-            const.DEST_FILE_PATH: "file_path"
+            const.DEST_FILE_PATH: "file_path",
         }
         with pytest.raises(ValueError):
             node_parsers.parse_file_sync(test_file_sync_config)
@@ -58,7 +58,7 @@ class TestParseFileSync:
             const.SOURCE_FILE_PATH: test_source_path,
             const.DEST_FILE_PATH: test_dest_path,
             const.NODE_KEY: test_key,
-            const.DEPENDENCY: test_dep_keys
+            const.DEPENDENCY: test_dep_keys,
         }
         file_sync = node_parsers.parse_file_sync(test_file_sync_config)
 
