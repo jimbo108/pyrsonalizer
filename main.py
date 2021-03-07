@@ -1,3 +1,4 @@
+from typing import List
 import argparse
 import logging
 
@@ -12,8 +13,13 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--path", type=str)
 
 
-def main():
-    args = parser.parse_args()
+def main(override_args: List[str] = None):
+    args = None
+    if override_args is not None:
+        args = parser.parse_args(override_args)
+    else:
+        args = parser.parse_args()
+
     config = utils.get_config(args.path, logger)
 
     exec_context = execution_context.create_execution_context(config)
