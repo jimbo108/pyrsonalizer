@@ -7,18 +7,23 @@ This is intended to:
 NP = node_parsers
 GP = graph_parser
 EG = execution_graph
+AC = actions
 """
 
 # Error Keys
 NP_MISSING_LOCATION_TYPE = "missing_location_type"
 NP_MISSING_FILE_SYNC_CONFIG = "missing_file_sync_config"
+NP_INVALID_LOCATION_TYPE = "np_invalid_location_type"
+NP_MISSING_EXEC_CONTEXT = "np_missing_exec_context"
 GP_PATH_DOES_NOT_EXIST = "gp_path_does_not_exist"
 GP_NO_CLASS_MAP = "gp_no_class_map"
 GP_NO_PARSER_FUNC_MAP = "gp_no_parser_func_map"
 GP_BAD_DEPENDENCY_REF = "gp_bad_dependency_ref"
 EG_CIRCULAR_DEPENDENCY = "eg_circular_dependency"
 EG_IMPOSSIBLE_STATE = "eg_impossible_state"
-
+AC_BAD_GITHUB_URL = "ac_bad_github_url"
+AC_BAD_FINAL_FILE_PATH = "ac_bad_final_file_path"
+AC_FAILED_TO_CLONE = "ac_failed_to_clone"
 
 class ImpossibleStateException(BaseException):
     """Represents an impossible state occurring due to a programming error or unforeseen input."""

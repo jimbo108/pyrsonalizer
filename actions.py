@@ -8,9 +8,13 @@ import pathlib
 import logging
 import shutil
 
-import utils
+import git
+import validators
 
+import utils
+from execution_context import ExecutionContext
 import const
+import errors
 
 logger = logging.Logger(__file__)
 
@@ -35,6 +39,88 @@ class FileLocation(ABC):
         """An abstract method intended to return file content for all child classes."""
         pass
 
+    @abc.abstractmethod
+    def get_file_path(self) -> pathlib.Path:
+        """An abstract method intended to return the path of a file with the content
+        from this file source.
+
+        In some cases this will be content copied to a temp file.
+        """
+        pass
+
+
+class GithubFileLocation(FileLocation):
+    """This class is resposible for downloading a file from Github and putting it
+        somewhere.
+
+    It downloads the content lazily, when get_file_path is actually called by the
+    parser.
+
+    Attributes:
+        repo_url: The URL of the respository that we are downloading the file from.
+        relative_path: The path of the relevant file relative to the Github repo.
+    """
+    def __init__(
+        self, repo_url: str, relative_path: pathlib.PurePath, app_dir: pathlib.Path
+    ):
+        super().__init__()
+        self._path: Optional[pathlib.Path] = None
+        self.repo_url = repo_url
+        self._set_repo_name()
+
+        self.relative_path = relative_path
+        self._app_dir = app_dir
+
+    def _set_repo_name(self) -> None:
+        if not validators.url(self.repo_url):
+            utils.log_and_raise(
+                logger.error,
+                f"Invalid URL {self.repo_url}.",
+                ValueError,
+                errors.AC_BAD_GITHUB_URL,
+            )
+        self._repo_name = ".".join(self.repo_url.split("/")[-2:])
+
+    def _clone(self) -> None:
+        try:
+            dir_to_save = os.path.join(self._app_dir, self._repo_name)
+            git.Repo.clone_from(self.repo_url, dir_to_save)
+            self._path = os.path.join(dir_to_save, self.relative_path)
+        except git.exc.GitCommandError as err:
+            utils.log_and_raise(
+                logger.error,
+                f"There was a problem downloading from the git repo at {self.repo_url} to {self._app_dir}",
+                err,
+                errors.AC_FAILED_TO_CLONE,
+            )
+
+        if not pathlib.Path(self._path).resolve().is_file():
+            utils.log_and_raise(
+                logger.error,
+                f"Github file to sync at path {self._path} does not exist.",
+                ValueError,
+                errors.AC_BAD_FINAL_FILE_PATH,
+            )
+
+    def get_file_path(self) -> pathlib.Path:
+        """Clones the repository and then returns the location of the relevant file."""
+        if self._path is None:
+            self._clone()
+        return pathlib.Path(self._path)
+
+    def get_file_content(self) -> str:
+        raise NotImplementedError()
+
+    def __eq__(self, other):
+        """Used for testing."""
+        return (
+            (self._path == other.path)
+            and (self.repo_url == other.repo_url)
+            and (self._repo_name == other._repo_name)
+            and (self.relative_path == other.relative_path)
+            and (self._app_dir == other._app_dir)
+        )
+
 
 class LocalFileLocation(FileLocation):
     """Child class of file location representing a local file source.
@@ -50,6 +136,9 @@ class LocalFileLocation(FileLocation):
         """See base class."""
         with open(self.path) as fh:
             return fh.read()
+
+    def get_file_path(self) -> pathlib.Path:
+        return self.path
 
     def __eq__(self, other) -> bool:
         return self.path == other.path
@@ -98,7 +187,7 @@ class Action(ABC):
         )
 
     @abc.abstractmethod
-    def execute(self):
+    def execute(self, exec_context: ExecutionContext):
         """Run the action."""
         raise NotImplementedError()
 
@@ -121,7 +210,7 @@ class Action(ABC):
 class NullAction(Action):
     """Will use this class for the root of the execution graph."""
 
-    def execute(self):
+    def execute(self, exec_context: ExecutionContext):
         """This action is not intended to do anything."""
         return True
 
@@ -132,13 +221,13 @@ class Installation(Action):
     TODO: Implement
     """
 
-    def execute(self):
+    def execute(self, exec_context: ExecutionContext):
         """See base class."""
         raise NotImplementedError()
 
 
 class EnvironmentCondition(object):
-    """An conditionn of the environment specified by the user that is required for actions in this exection graph to run
+    """An condition of the environment specified by the user that is required for actions in this exection graph to run
     successfully."""
 
     pass
@@ -154,7 +243,7 @@ class FileSync(Action):
         backend: The type of source for the file being synced. Currently only local is supported.
         file_source: An object representing the location of a source file.
         local_path: The local path where the file should be stored.
-        overwrite: Whether or not a local file at self.local_path should be overwritten
+        overwrite: Whether or not a local file at self.dest_path should be overwritten
         dependency_keys: See base class.
     """
 
@@ -167,16 +256,16 @@ class FileSync(Action):
         overwrite: bool,
         dependency_keys: Optional[List[str]] = None,
     ):
+        super().__init__(key, dependency_keys=dependency_keys)
         self.backend: FileSyncBackendType = backend
         self.file_source: FileLocation = file_source
-        self.local_path: pathlib.Path = local_path
+        self.dest_path: pathlib.Path = local_path
         self.overwrite: bool = overwrite
-        super().__init__(key, dependency_keys=dependency_keys)
 
-    def execute(self) -> bool:
+    def execute(self, exec_context: ExecutionContext) -> None:
         """Attempts to copy the source file to the destination.
 
-        Currently assumes a local file source. Will need to be changed later TODO.
+        Gets a source file from self.file_source, an example of the Adapter pattern.
 
         Returns:
             True of the execution was successful.
@@ -184,15 +273,13 @@ class FileSync(Action):
         Raises:
             ActionFailureException: An error occurred executing this action.
         """
-        if not self.overwrite and self.local_path.resolve().is_file():
+        source_path = self.file_source.get_file_path()
+
+        if not self.overwrite and self.dest_path.resolve().is_file():
             utils.log_and_raise(
                 logger.error,
+                f"File exists at {self.dest_path} and overwrite is not set to true.",
                 ActionFailureException,
-                f"File exists at {self.local_path} and overwrite is not set to true.",
             )
 
-        if type(self.file_source) == LocalFileLocation:
-            shutil.copy(self.file_source.path, self.local_path)
-            return True
-        else:
-            raise NotImplementedError()
+        shutil.copy(source_path, self.dest_path)

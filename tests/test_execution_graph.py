@@ -4,12 +4,13 @@ import pytest
 
 import execution_graph
 from actions import Action
+from execution_context import ExecutionContext
 
 VISITED_COUNT = 0
 
 
 class TestAction(Action):
-    def execute(self):
+    def execute(self, exec_context: ExecutionContext):
         global VISITED_COUNT
         VISITED_COUNT += 1
 
@@ -28,7 +29,7 @@ class TestExecutionGraph:
 
         exec_graph = execution_graph.ExecutionGraph(node_one, [])
         with pytest.raises(execution_graph.CircularDependencyException):
-            exec_graph.execute()
+            exec_graph.execute(ExecutionContext())
 
     def test_happy_path__all_nodes_executed(self):
         node_one = execution_graph.GraphNode(TestAction("1"))
@@ -43,7 +44,7 @@ class TestExecutionGraph:
 
         exec_graph = execution_graph.ExecutionGraph(node_one, [])
         try:
-            exec_graph.execute()
+            exec_graph.execute(ExecutionContext())
         except:
             pytest.fail()
 

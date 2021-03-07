@@ -10,6 +10,8 @@ black = "^20.8b1"
 PyYAML = "^5.4.1"
 pytest = "^6.2.2"
 pytest-mock = "^3.5.1"
+GitPython = "^3.1.14"
+validators = "^0.18.2"
 
 [tool.poetry.dev-dependencies]
 

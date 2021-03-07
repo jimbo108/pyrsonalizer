@@ -7,7 +7,6 @@ import graph_parser
 import errors
 import actions
 import const
-from execution_graph import ExecutionGraph
 import execution_graph
 
 
@@ -72,7 +71,31 @@ def mock_get_config_bad_deps(mocker):
 
 
 @pytest.fixture
-def mock_get_config_happy_deps(mocker):
+def mock_get_config_happy_deps_github(mocker):
+    mock = mocker.patch("graph_parser._get_config")
+    mock.return_value = {
+        "file_syncs": [
+            {
+                const.LOCATION_TYPE_NODE: const.LOCATION_TYPE_GITHUB,
+                const.SOURCE_FILE_PATH: "source_path",
+                const.REPOSITORY: "http://testsite.com/uname/projname",
+                const.DEST_FILE_PATH: "dest_path",
+                const.NODE_KEY: "key_one",
+                const.DEPENDENCY: ["key_two"],
+            },
+            {
+                const.LOCATION_TYPE_NODE: const.LOCATION_TYPE_GITHUB,
+                const.SOURCE_FILE_PATH: "source_path",
+                const.REPOSITORY: "http://testsite.com/uname/projname",
+                const.DEST_FILE_PATH: "dest_path",
+                const.NODE_KEY: "key_two",
+            },
+        ]
+    }
+
+
+@pytest.fixture
+def mock_get_config_happy_deps_local(mocker):
     mock = mocker.patch("graph_parser._get_config")
     mock.return_value = {
         "file_syncs": [
@@ -108,7 +131,7 @@ def mock_get_config_happy(mocker):
     }
 
 
-class TestGraphParserLocal:
+class TestGraphParser:
     def test_path_does_not_exist__raises(self, mock_log_and_raise):
         test_path = "path"
         with pytest.raises(ValueError):
@@ -151,10 +174,10 @@ class TestGraphParserLocal:
 
         assert child.value.backend == actions.FileSyncBackendType.local
         assert str(child.value.file_source.path) == "source_path"
-        assert str(child.value.local_path) == "dest_path"
+        assert str(child.value.dest_path) == "dest_path"
         assert child.value.overwrite is False
 
-    def test_happy_path_with_deps(self, mock_get_config_happy_deps):
+    def test_happy_path_with_deps(self, mock_get_config_happy_deps_local):
         result_graph = None
         try:
             result_graph = graph_parser.parse_execution_graph(pathlib.Path("test_path"))
@@ -168,7 +191,7 @@ class TestGraphParserLocal:
 
         assert child.value.backend == actions.FileSyncBackendType.local
         assert str(child.value.file_source.path) == "source_path"
-        assert str(child.value.local_path) == "dest_path"
+        assert str(child.value.dest_path) == "dest_path"
         assert child.value.overwrite is False
         assert child.value.key == "key_one"
 
@@ -176,6 +199,6 @@ class TestGraphParserLocal:
 
         assert grandchild.value.backend == actions.FileSyncBackendType.local
         assert str(grandchild.value.file_source.path) == "source_path"
-        assert str(grandchild.value.local_path) == "dest_path"
+        assert str(grandchild.value.dest_path) == "dest_path"
         assert grandchild.value.overwrite is False
         assert grandchild.value.key == "key_two"
