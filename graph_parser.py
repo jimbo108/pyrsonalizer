@@ -15,8 +15,12 @@ from execution_graph import ExecutionGraph, GraphNode
 from actions import Action
 import node_parsers
 import errors
+from execution_context import ExecutionContext
+import const
 
 logger = logging.Logger(__file__)
+
+SPECIAL_KEYS = [const.PYRS_DIR_NODE]
 
 KLASS_MAP = {
     "file_syncs": actions.FileSync,
@@ -62,12 +66,8 @@ def _get_klass_for_node(node: str) -> Type:
     """Gets the class associated with a top-level configuration node like "file_syncs"."""
     klass = KLASS_MAP.get(node, None)
     if klass is None:
-        utils.log_and_raise(
-            logger.error,
-            ValueError,
-            f"Couldn't map yaml node {node} to a class.",
-            errors.GP_NO_CLASS_MAP,
-        )
+        utils.log_and_raise(logger.error, f"Couldn't map yaml node {node} to a class.", ValueError,
+                            errors.GP_NO_CLASS_MAP)
     return klass
 
 
@@ -83,25 +83,17 @@ def _get_func_for_klass(klass: Type) -> Callable:
     Returns:
         A parser function that returns an instance of `klass`.
     """
-    klass = PARSER_MAP.get(klass, None)
-    if klass is None:
-        utils.log_and_raise(
-            logger.error,
-            ValueError,
-            f"Couldn't map class {klass} to parser function",
-            errors.GP_NO_PARSER_FUNC_MAP,
-        )
-    return klass
+    func = PARSER_MAP.get(klass, None)
+    if func is None:
+        utils.log_and_raise(logger.error, f"Couldn't map class {klass} to parser function", ValueError,
+                            errors.GP_NO_PARSER_FUNC_MAP)
+    return func
 
 
 def _get_config(path: Union[pathlib.Path, os.PathLike]) -> Dict[str, Any]:
     if not os.path.exists(path):
-        utils.log_and_raise(
-            logger.error,
-            ValueError,
-            f"Path {str(path)} does not exist.",
-            errors.GP_PATH_DOES_NOT_EXIST,
-        )
+        utils.log_and_raise(logger.error, f"Path {str(path)} does not exist.", ValueError,
+                            errors.GP_PATH_DOES_NOT_EXIST)
 
     with open(path) as fh:
         return yaml.load(fh, Loader=yaml.BaseLoader)
@@ -109,6 +101,7 @@ def _get_config(path: Union[pathlib.Path, os.PathLike]) -> Dict[str, Any]:
 
 def _parse_objects(
     config: Dict[str, Any],
+    exec_context: ExecutionContext
 ) -> ParserState:
     """Iterates over the input configuration and creates objects.
 
@@ -116,17 +109,20 @@ def _parse_objects(
 
     Args:
         config: The input config.
+        exec_context: Additional information needed to parse objects.
 
     Returns:
         A ParserState object containing additioanl actions and conditions.
     """
     parser_state = ParserState()
     for key in config.keys():
+        if key in SPECIAL_KEYS:
+            continue
         klass = _get_klass_for_node(key)
         parser_func = _get_func_for_klass(klass)
 
         for obj_config in config[key]:
-            instance = parser_func(obj_config)
+            instance = parser_func(obj_config, exec_context)
             if issubclass(klass, Action):
                 _handle_add_action(instance, parser_state)
 
@@ -153,12 +149,9 @@ def _build_dependency_graph(
                     for obj in [object_mapping[key] for key in action.dependency_keys]
                 )
             except KeyError as err:
-                utils.log_and_raise(
-                    logger.error,
-                    KeyError,
-                    f"Dependency key {err.args[0]} does not refer to an object that exists.",
-                    errors.GP_BAD_DEPENDENCY_REF,
-                )
+                utils.log_and_raise(logger.error,
+                                    f"Dependency key {err.args[0]} does not refer to an object that exists.", KeyError,
+                                    errors.GP_BAD_DEPENDENCY_REF)
 
 
 def _build_nodes(
@@ -182,11 +175,8 @@ def _build_nodes(
                     ]
                 )
             except KeyError as err:
-                utils.log_and_raise(
-                    logger.error,
-                    KeyError,
-                    f"Coudldn't find execution graph node for object with key {err.args[0]}",
-                )
+                utils.log_and_raise(logger.error,
+                                    f"Coudldn't find execution graph node for object with key {err.args[0]}", KeyError)
 
 
 def _build_root(
@@ -231,7 +221,7 @@ def _build_execution_graph(parser_state: ParserState) -> ExecutionGraph:
     return ExecutionGraph(root, parser_state.condition_list)
 
 
-def parse_execution_graph(path: Union[pathlib.Path, os.PathLike]) -> ExecutionGraph:
+def parse_execution_graph(path: Union[pathlib.Path, os.PathLike], exec_context: ExecutionContext) -> ExecutionGraph:
     """Creates an ExecutionGraph from configuration input.
 
     Does so by:
@@ -242,13 +232,14 @@ def parse_execution_graph(path: Union[pathlib.Path, os.PathLike]) -> ExecutionGr
 
     Args:
          path: The path of the input file.
+         exec_context: Additional information required to parse objects.
 
     Returns:
         The complete ExecutionGraph.
     """
     config = _get_config(path)
 
-    parser_state = _parse_objects(config)
+    parser_state = _parse_objects(config, exec_context)
 
     _build_dependency_graph(parser_state.action_list, parser_state.key_object_mapping)
 

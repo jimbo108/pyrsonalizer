@@ -150,19 +150,11 @@ class ExecutionGraph(object):
                     active_list.append(child)
 
         if len(sorted_list) < known_node_count:
-            utils.log_and_raise(
-                logger.error,
-                CircularDependencyException,
-                "Found circular dependency in dependency graph.",
-                errors.EG_CIRCULAR_DEPENDENCY,
-            )
+            utils.log_and_raise(logger.error, "Found circular dependency in dependency graph.",
+                                CircularDependencyException, errors.EG_CIRCULAR_DEPENDENCY)
         elif len(sorted_list) > known_node_count:
-            utils.log_and_raise(
-                logger.error,
-                errors.ImpossibleStateException,
-                "Hit an impossible state, you've found a bug!",
-                errors.EG_IMPOSSIBLE_STATE,
-            )
+            utils.log_and_raise(logger.error, "Hit an impossible state, you've found a bug!",
+                                errors.ImpossibleStateException, errors.EG_IMPOSSIBLE_STATE)
 
         return sorted_list
 

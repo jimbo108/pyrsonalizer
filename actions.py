@@ -8,9 +8,13 @@ import pathlib
 import logging
 import shutil
 
+import git
+import validators
+
 import utils
 from execution_context import ExecutionContext
 import const
+import errors
 
 logger = logging.Logger(__file__)
 
@@ -43,6 +47,79 @@ class FileLocation(ABC):
         In some cases this will be content copied to a temp file.
         """
         pass
+
+
+class GithubFileLocation(FileLocation):
+    """This class is resposible for downloading a file from Github and putting it
+        somewhere.
+
+    It downloads the content lazily, when get_file_path is actually called by the
+    parser.
+
+    Attributes:
+        repo_url: The URL of the respository that we are downloading the file from.
+        relative_path: The path of the relevant file relative to the Github repo.
+    """
+    def __init__(
+        self, repo_url: str, relative_path: pathlib.PurePath, app_dir: pathlib.Path
+    ):
+        super().__init__()
+        self._path: Optional[pathlib.Path] = None
+        self.repo_url = repo_url
+        self._set_repo_name()
+
+        self.relative_path = relative_path
+        self._app_dir = app_dir
+
+    def _set_repo_name(self) -> None:
+        if not validators.url(self.repo_url):
+            utils.log_and_raise(
+                logger.error,
+                f"Invalid URL {self.repo_url}.",
+                ValueError,
+                errors.AC_BAD_GITHUB_URL,
+            )
+        self._repo_name = ".".join(self.repo_url.split("/")[-2:])
+
+    def _clone(self) -> None:
+        try:
+            dir_to_save = os.path.join(self._app_dir, self._repo_name)
+            git.Repo.clone_from(self.repo_url, dir_to_save)
+            self._path = os.path.join(dir_to_save, self.relative_path)
+        except git.exc.GitCommandError as err:
+            utils.log_and_raise(
+                logger.error,
+                f"There was a problem downloading from the git repo at {self.repo_url} to {self._app_dir}",
+                err,
+                errors.AC_FAILED_TO_CLONE,
+            )
+
+        if not pathlib.Path(self._path).resolve().is_file():
+            utils.log_and_raise(
+                logger.error,
+                f"Github file to sync at path {self._path} does not exist.",
+                ValueError,
+                errors.AC_BAD_FINAL_FILE_PATH,
+            )
+
+    def get_file_path(self) -> pathlib.Path:
+        """Clones the repository and then returns the location of the relevant file."""
+        if self._path is None:
+            self._clone()
+        return pathlib.Path(self._path)
+
+    def get_file_content(self) -> str:
+        raise NotImplementedError()
+
+    def __eq__(self, other):
+        """Used for testing."""
+        return (
+            (self._path == other.path)
+            and (self.repo_url == other.repo_url)
+            and (self._repo_name == other._repo_name)
+            and (self.relative_path == other.relative_path)
+            and (self._app_dir == other._app_dir)
+        )
 
 
 class LocalFileLocation(FileLocation):
@@ -201,8 +278,8 @@ class FileSync(Action):
         if not self.overwrite and self.dest_path.resolve().is_file():
             utils.log_and_raise(
                 logger.error,
-                ActionFailureException,
                 f"File exists at {self.dest_path} and overwrite is not set to true.",
+                ActionFailureException,
             )
 
         shutil.copy(source_path, self.dest_path)

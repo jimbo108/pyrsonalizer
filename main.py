@@ -18,7 +18,7 @@ def main():
 
     exec_context = execution_context.create_execution_context(config)
 
-    execution_graph = graph_parser.parse_execution_graph(args.path)
+    execution_graph = graph_parser.parse_execution_graph(args.path, exec_context)
     execution_graph.execute(exec_context)
 
 
