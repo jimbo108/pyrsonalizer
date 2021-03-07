@@ -84,6 +84,10 @@ class GithubFileLocation(FileLocation):
     def _clone(self) -> None:
         try:
             dir_to_save = os.path.join(self._app_dir, self._repo_name)
+            try:
+                shutil.rmtree(dir_to_save)
+            except FileNotFoundError:
+                pass
             git.Repo.clone_from(self.repo_url, dir_to_save)
             self._path = os.path.join(dir_to_save, self.relative_path)
         except git.exc.GitCommandError as err:
@@ -138,6 +142,8 @@ class LocalFileLocation(FileLocation):
             return fh.read()
 
     def get_file_path(self) -> pathlib.Path:
+        if not os.path.exists(self.path):
+            raise EnvironmentError(f"{self.path} does not exist.")
         return self.path
 
     def __eq__(self, other) -> bool:
@@ -274,8 +280,9 @@ class FileSync(Action):
             ActionFailureException: An error occurred executing this action.
         """
         source_path = self.file_source.get_file_path()
+        full_dest_path = os.path.join(self.dest_path, source_path.name)
 
-        if not self.overwrite and self.dest_path.resolve().is_file():
+        if not self.overwrite and pathlib.Path(full_dest_path).resolve().is_file():
             utils.log_and_raise(
                 logger.error,
                 f"File exists at {self.dest_path} and overwrite is not set to true.",

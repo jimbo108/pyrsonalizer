@@ -1,0 +1,12 @@
+file_syncs:
+    - location_type: local
+      file_path: ./test-directory/test_inner_directory_src/test_file_1.txt
+      destination: ./test-directory/test_inner_directory_dest/test_file_1.txt
+      key: 1
+    - location_type: local
+      file_path: ./test-directory/test_inner_directory_src/test_file_2.txt
+      destination: ./test-directory/test_inner_directory_dest/test_file_2.txt
+      key: 2
+      dependency:
+        - 1
+pyrsonalizer_directory: /Users/jurban/.pyrsonalizer
