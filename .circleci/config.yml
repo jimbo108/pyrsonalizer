@@ -20,7 +20,7 @@ jobs:
           command: poetry run python -m pytest tests
           name: Unit Test
       - run:
-          command: cd e2e-tests; poetry run python e2e_tests.py
+          command: EXPORT PYTHONPATH='.'; cd e2e-tests; poetry run python e2e_tests.py
           name: End-to-End Test
 
 workflows:
