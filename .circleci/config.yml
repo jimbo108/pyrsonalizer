@@ -18,7 +18,10 @@ jobs:
           key: deps9-{{ .Branch }}-{{ checksum "poetry.lock"}}
       - run:
           command: poetry run python -m pytest tests
-          name: Test
+          name: Unit Test
+      - run:
+          command: poetry run python e2e-tests/e2e_tests.py
+          name: End-to-End Test
 
 workflows:
   main:
