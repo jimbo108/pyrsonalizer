@@ -8,6 +8,7 @@ NP = node_parsers
 GP = graph_parser
 EG = execution_graph
 AC = actions
+UT = utils
 """
 
 # Error Keys
@@ -24,6 +25,9 @@ EG_IMPOSSIBLE_STATE = "eg_impossible_state"
 AC_BAD_GITHUB_URL = "ac_bad_github_url"
 AC_BAD_FINAL_FILE_PATH = "ac_bad_final_file_path"
 AC_FAILED_TO_CLONE = "ac_failed_to_clone"
+AC_USER_STOPPED_EXECUTION = "ac_user_stopped_execution"
+UT_GET_MODIFIED_DATE_PATH_DOES_NOT_EXIST = "ut_get_modified_date_path_does_not_exist"
+
 
 class ImpossibleStateException(BaseException):
     """Represents an impossible state occurring due to a programming error or unforeseen input."""

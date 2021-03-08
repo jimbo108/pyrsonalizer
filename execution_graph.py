@@ -125,6 +125,8 @@ class ExecutionGraph(object):
         for node in execute_order:
             try:
                 node.value.execute(exec_context)
+            except actions.UserStoppedExecutionException:
+                return
             except actions.ActionFailureException as err:
                 raise err
 

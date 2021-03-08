@@ -12,6 +12,7 @@ pytest = "^6.2.2"
 pytest-mock = "^3.5.1"
 GitPython = "^3.1.14"
 validators = "^0.18.2"
+prompt-toolkit = "^3.0.16"
 
 [tool.poetry.dev-dependencies]
 
