@@ -69,7 +69,7 @@ class TestGithubFileLocation:
         source_file_path = "test_file"
         test_app_dir = "test_app_dir"
         test_repo_url = f"bad_url/{test_user}{test_repo_name}"
-        with pytest.raises(KeyError):
+        with pytest.raises(ValueError):
             github_file_location = actions.GithubFileLocation(
                 repo_url=test_repo_url,
                 relative_path=pathlib.PurePath(source_file_path),
