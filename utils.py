@@ -1,7 +1,7 @@
 """Contains convenience functions."""
-import logging
 from typing import Callable, Type, Optional, Any, Dict, Union
 import os
+from datetime import datetime, timezone
 
 import yaml
 
@@ -12,14 +12,28 @@ import pathlib
 
 logger = logging.Logger(__file__)
 
+
+def get_file_modified_date(path: pathlib.Path) -> datetime:
+    """Gets the modified date of the file at `path` in UTC."""
+    if not path.resolve().exists():
+        log_and_raise(
+            logger.error,
+            f"Path {str(path)} does not exist.",
+            ValueError,
+            errors.UT_GET_MODIFIED_DATE_PATH_DOES_NOT_EXIST
+        )
+    return datetime.fromtimestamp(path.stat().st_mtime, tz=timezone.utc)
+
+
 def get_config(
     path: Union[pathlib.Path, os.PathLike], logger: logging.Logger
 ) -> Dict[str, Any]:
+    """Builds a dictionary from the YAML file at `path`."""
     if not os.path.exists(path):
         log_and_raise(logger.error, f"Path {str(path)} does not exist.", ValueError, errors.GP_PATH_DOES_NOT_EXIST)
 
     with open(path) as fh:
-        return yaml.load(fh, Loader=yaml.BaseLoader)
+        return yaml.load(fh)
 
 
 def log_and_raise(logger_func: Callable, error_message: str, exception: Union[Type[BaseException], BaseException],

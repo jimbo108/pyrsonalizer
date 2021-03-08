@@ -1,0 +1,19 @@
+file_syncs:
+    - location_type: local
+      file_path: ./test-directory/test_inner_directory_src/test_file_1.txt
+      destination: ./test-directory/test_inner_directory_dest/test_file_1.txt
+      key: 1
+    - location_type: local
+      file_path: ./test-directory/test_inner_directory_src/test_file_2.txt
+      destination: ./test-directory/test_inner_directory_dest/test_file_2.txt
+      key: 2
+      dependency:
+        - 1
+        - 3
+    - location_type: github
+      repository: https://github.com/jimbo108/vimrc
+      file_path: .vimrc
+      destination: ./test-directory/test_inner_directory_dest/.vimrc
+      overwrite: yes
+      key: 3
+pyrsonalizer_directory: /Users/jurban/.pyrsonalizer

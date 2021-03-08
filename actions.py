@@ -7,9 +7,12 @@ import abc
 import pathlib
 import logging
 import shutil
+from datetime import datetime, timezone
 
 import git
 import validators
+import prompt_toolkit
+from prompt_toolkit import validation
 
 import utils
 from execution_context import ExecutionContext
@@ -31,8 +34,25 @@ class FileSyncBackendType(Enum):
     local = "local"
 
 
+class ModifiedDateDecisionEnum(Enum):
+    """User decisions when a local file is newer than a remote file."""
+
+    stop_execution = 1
+    skip_this_action = 2
+    proceed_once = 3
+    ignore_in_future = 4
+
+
+class UserStoppedExecutionException(BaseException):
+    """Exception raised when a user has stopped the execution."""
+
+    pass
+
+
 class FileLocation(ABC):
     """Represents the source of a file used in a file sync action."""
+
+    modified_date_prompt_string = "The modified time of the local file is newer than the file you're attempting to download. What would you like to do?\n1. Stop this execution\n2. Skip this action once\n3. Proceed with this action once\n4. Ignore this error for the rest of this execution\n\nDecision: "
 
     @abc.abstractmethod
     def get_file_content(self) -> str:
@@ -48,6 +68,41 @@ class FileLocation(ABC):
         """
         pass
 
+    @abc.abstractmethod
+    def get_modified_date(self) -> datetime:
+        """An abstract method to return the last modified date of the file location."""
+        pass
+
+    def compare_modified_date(
+        self, file_path: pathlib.Path
+    ) -> Optional[ModifiedDateDecisionEnum]:
+        """Compare the modified date of the local file and this FileLocation.
+
+        Args:
+             file_path: The path of the local file.
+
+        Returns:
+            The decision the user makes as a ModifiedDateDecisionEnum or None if there
+            is no need.
+        """
+        if self.get_modified_date() < utils.get_file_modified_date(file_path):
+            # noinspection PyTypeChecker
+            validator: validation.Validator = (
+                validation.Validator.from_callable(
+                    lambda x: x in [str(x.value) for x in ModifiedDateDecisionEnum],
+                    error_message="Invalid choice.",
+                    move_cursor_to_end=True,
+                ),
+            )
+
+            choice = prompt_toolkit.prompt(
+                message=self.modified_date_prompt_string, validator=validator
+            )
+
+            return ModifiedDateDecisionEnum(int(choice))
+
+        return None
+
 
 class GithubFileLocation(FileLocation):
     """This class is resposible for downloading a file from Github and putting it
@@ -60,6 +115,7 @@ class GithubFileLocation(FileLocation):
         repo_url: The URL of the respository that we are downloading the file from.
         relative_path: The path of the relevant file relative to the Github repo.
     """
+
     def __init__(
         self, repo_url: str, relative_path: pathlib.PurePath, app_dir: pathlib.Path
     ):
@@ -67,7 +123,7 @@ class GithubFileLocation(FileLocation):
         self._path: Optional[pathlib.Path] = None
         self.repo_url = repo_url
         self._set_repo_name()
-
+        self._repo: git.Repo = None
         self.relative_path = relative_path
         self._app_dir = app_dir
 
@@ -88,7 +144,7 @@ class GithubFileLocation(FileLocation):
                 shutil.rmtree(dir_to_save)
             except FileNotFoundError:
                 pass
-            git.Repo.clone_from(self.repo_url, dir_to_save)
+            self._repo = git.Repo.clone_from(self.repo_url, dir_to_save)
             self._path = os.path.join(dir_to_save, self.relative_path)
         except git.exc.GitCommandError as err:
             utils.log_and_raise(
@@ -115,6 +171,12 @@ class GithubFileLocation(FileLocation):
     def get_file_content(self) -> str:
         raise NotImplementedError()
 
+    def get_modified_date(self) -> datetime:
+        """Get the modified date of the last commit to main."""
+        if self._path is None:
+            self._clone()
+        return self._repo.head.commit.committed_datetime.astimezone(timezone.utc)
+
     def __eq__(self, other):
         """Used for testing."""
         return (
@@ -134,6 +196,7 @@ class LocalFileLocation(FileLocation):
     """
 
     def __init__(self, path: pathlib.Path):
+        super().__init__()
         self.path = path
 
     def get_file_content(self) -> str:
@@ -148,6 +211,10 @@ class LocalFileLocation(FileLocation):
 
     def __eq__(self, other) -> bool:
         return self.path == other.path
+
+    def get_modified_date(self) -> datetime:
+        """Return the modified date of the file at `self.path`."""
+        return utils.get_file_modified_date(self.path)
 
 
 class FileExistsException(BaseException):
@@ -268,6 +335,37 @@ class FileSync(Action):
         self.dest_path: pathlib.Path = local_path
         self.overwrite: bool = overwrite
 
+    def _handle_modified_date(self, exec_context: ExecutionContext) -> bool:
+        """Based on the ModifiedDateDecisionEnum returned by compare_modified date, take
+           an action.
+
+        Args:
+            exec_context: The execution context
+
+        Returns:
+            True if the action should finish executing, False if not.
+        """
+        choice = self.file_source.compare_modified_date(self.dest_path)
+
+        if choice is not None:
+            if choice == ModifiedDateDecisionEnum.stop_execution:
+                utils.log_and_raise(
+                    logger.error,
+                    f"User stopped execution at action with key {self.key}",
+                    UserStoppedExecutionException,
+                    errors.AC_USER_STOPPED_EXECUTION,
+                )
+            elif choice == ModifiedDateDecisionEnum.skip_this_action:
+                logger.info(f"Skipped action with key {self.key}")
+                return False
+            elif choice == ModifiedDateDecisionEnum.proceed_once:
+                pass
+            elif choice == ModifiedDateDecisionEnum.ignore_in_future:
+                exec_context.skip_modified_date_warning = True
+                return True
+
+        return True
+
     def execute(self, exec_context: ExecutionContext) -> None:
         """Attempts to copy the source file to the destination.
 
@@ -280,13 +378,16 @@ class FileSync(Action):
             ActionFailureException: An error occurred executing this action.
         """
         source_path = self.file_source.get_file_path()
-        full_dest_path = os.path.join(self.dest_path, source_path.name)
 
-        if not self.overwrite and pathlib.Path(full_dest_path).resolve().is_file():
-            utils.log_and_raise(
-                logger.error,
-                f"File exists at {self.dest_path} and overwrite is not set to true.",
-                ActionFailureException,
-            )
+        if pathlib.Path(self.dest_path).resolve().is_file():
+            if not self.overwrite:
+                utils.log_and_raise(
+                    logger.error,
+                    f"File exists at {self.dest_path} and overwrite is not set to true.",
+                    ActionFailureException,
+                )
+            else:
+                if not self._handle_modified_date(exec_context):
+                    return
 
         shutil.copy(source_path, self.dest_path)

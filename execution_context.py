@@ -11,6 +11,7 @@ DEFAULT_PYRS_DIR = "~/.pyrsonalizer/"
 class ExecutionContext:
     """A dataclass for holding state required for Action execution"""
     pyrsonalizer_directory: Optional[pathlib.Path] = None
+    skip_modified_date_warning: bool = False
 
 
 def create_execution_context(config: Dict[str, Any]) -> ExecutionContext:
