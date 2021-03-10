@@ -9,4 +9,4 @@ file_syncs:
       key: 2
       dependency:
         - 1
-pyrsonalizer_directory: /Users/jurban/.pyrsonalizer
+pyrsonalizer_directory: ./test-directory/.pyrsonalizer

@@ -15,4 +15,4 @@ file_syncs:
       file_path: .vimrc
       destination: ./test-directory/test_inner_directory_dest/.vimrc
       key: 3
-pyrsonalizer_directory: /Users/jurban/.pyrsonalizer
+pyrsonalizer_directory: ./test-directory/.pyrsonalizer

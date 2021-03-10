@@ -16,4 +16,4 @@ file_syncs:
       destination: ./test-directory/test_inner_directory_dest/.vimrc
       overwrite: yes
       key: 3
-pyrsonalizer_directory: /Users/jurban/.pyrsonalizer
+pyrsonalizer_directory: ./test-directory/.pyrsonalizer
