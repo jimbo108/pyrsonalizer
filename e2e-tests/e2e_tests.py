@@ -60,6 +60,7 @@ def test_github_file_sync_existing_file__prompts():
 
     assert path.exists()
     assert path.stat().st_size == 0
+    assert False
 
 
 if __name__ == '__main__':
