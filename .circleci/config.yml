@@ -1,0 +1,29 @@
+version: 2.1
+
+
+jobs:
+  build-and-test:
+    docker: 
+      - image: circleci/python:3.9.0
+    steps:
+      - checkout
+      - restore_cache:
+          key: deps9-{{ .Branch }}-{{ checksum "poetry.lock"}}
+      - run:
+          command: |
+            poetry install
+      - save_cache:
+          paths:
+            - "/home/circleci/.cache/pypoetry/virtualenvs"
+          key: deps9-{{ .Branch }}-{{ checksum "poetry.lock"}}
+      - run:
+          command: poetry run python -m pytest tests
+          name: Unit Test
+      - run:
+          command: cd e2e-tests; export PYTHONPATH='..'; poetry run python e2e_tests.py
+          name: End-to-End Test
+
+workflows:
+  main:
+    jobs:
+      - build-and-test
