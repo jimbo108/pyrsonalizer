@@ -292,7 +292,13 @@ class NullAction(Action):
 class Installation(Action):
     """An action that installs software.
 
-    TODO: Implement
+    Comes in two flavors -- "check-only" and normal. "check-only" installations
+    just represent dependency checks, and fail if the check fails.
+
+    Attributes:
+        check_command: Bash command that returns 0 if the Installation is already
+            complete.
+        install_command: Bash command for installation.
     """
 
     def __init__(
