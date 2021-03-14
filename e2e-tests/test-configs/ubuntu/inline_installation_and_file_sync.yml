@@ -1,0 +1,21 @@
+file_syncs:
+    - location_type: local
+      file_path: ./test-directory/test_inner_directory_src/test_file_1.txt
+      destination: ./test-directory/test_inner_directory_dest/test_file_1.txt
+      key: 1
+    - location_type: local
+      file_path: ./test-directory/test_inner_directory_src/test_file_2.txt
+      destination: ./test-directory/test_inner_directory_dest/test_file_2.txt
+      key: 2
+      dependency:
+        - 1
+        - 3
+installations:
+    - install_command: sudo apt install curl
+      check_command: command -v curl
+      key: 3
+      dependency:
+        - 5
+    - check_command: command -v apt
+      key: 5
+pyrsonalizer_directory: ./test-directory/.pyrsonalizer

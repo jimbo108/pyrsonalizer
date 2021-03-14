@@ -29,6 +29,11 @@ REQUIRED_FS_NODES = {
     ],
 }
 
+REQUIRED_INSTALLATION_NODES = [
+    const.NODE_KEY,
+    const.CHECK_COMMAND
+]
+
 LOCATION_TYPES = [const.LOCATION_TYPE_LOCAL, const.LOCATION_TYPE_GITHUB]
 
 
@@ -46,8 +51,33 @@ def map_location_type(location_type: str) -> actions.FileSyncBackendType:
         )
 
 
+def parse_installation(
+    file_sync_config: Dict[str, Union[str, bool, int]],
+    exec_context: Optional[ExecutionContext] = None,
+) -> actions.Installation:
+    if any(x not in file_sync_config for x in REQUIRED_INSTALLATION_NODES):
+        missing_nodes = filter(
+            lambda x: x not in file_sync_config,
+            [node for node in REQUIRED_INSTALLATION_NODES],
+        )
+        utils.log_and_raise(
+            logger.error,
+            f"File sync config missing nodes {','.join(missing_nodes)}",
+            ValueError,
+            errors.NP_MISSING_FILE_SYNC_CONFIG,
+        )
+
+    return actions.Installation(
+        install_command=file_sync_config.get(const.INSTALL_COMMAND, None),
+        check_command=file_sync_config[const.CHECK_COMMAND],
+        key=file_sync_config[const.NODE_KEY],
+        dependency_keys=file_sync_config.get(const.DEPENDENCY, None)
+    )
+
+
 def parse_file_sync(
-    file_sync_config: Dict[str, Union[str, bool, int]], exec_context: Optional[ExecutionContext] = None
+    file_sync_config: Dict[str, Union[str, bool, int]],
+    exec_context: Optional[ExecutionContext] = None,
 ) -> actions.FileSync:
     """Creates an Action object from configuration."""
     if (
@@ -60,12 +90,15 @@ def parse_file_sync(
             ValueError,
             errors.NP_MISSING_LOCATION_TYPE,
         )
-    if exec_context is None and file_sync_config[const.LOCATION_TYPE_NODE] == const.LOCATION_TYPE_GITHUB:
+    if (
+        exec_context is None
+        and file_sync_config[const.LOCATION_TYPE_NODE] == const.LOCATION_TYPE_GITHUB
+    ):
         utils.log_and_raise(
             logger.error,
             f"Execution contet must be passed in when file sync is of type {const.LOCATION_TYPE_GITHUB}.",
             ValueError,
-            errors.NP_MISSING_EXEC_CONTEXT
+            errors.NP_MISSING_EXEC_CONTEXT,
         )
 
     dependency_keys = file_sync_config.get(const.DEPENDENCY, [])

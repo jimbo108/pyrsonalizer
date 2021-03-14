@@ -30,6 +30,15 @@ def mock_log_and_raise(mocker):
     return mock
 
 
+class TestInstallation:
+    def test_missing_config__log_and_raise(self, mock_log_and_raise):
+        test_file_sync_config = {}
+        with pytest.raises(ValueError):
+            node_parsers.parse_installation(test_file_sync_config)
+        call_args = mock_log_and_raise.call_args[0]
+        assert errors.NP_MISSING_FILE_SYNC_CONFIG in call_args
+
+
 class TestParseFileSync:
     def test_no_location_node__log_and_raise(self, mock_log_and_raise):
         test_file_sync_config = {}
