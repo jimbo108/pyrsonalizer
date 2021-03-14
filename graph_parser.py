@@ -26,9 +26,13 @@ KLASS_MAP = {
     "file_syncs": actions.FileSync,
     "installation": actions.Installation,
     "environment_condition": actions.EnvironmentCondition,
+    "installations": actions.Installation,
 }
 
-PARSER_MAP: Dict[Type, Callable] = {actions.FileSync: node_parsers.parse_file_sync}
+PARSER_MAP: Dict[Type, Callable] = {
+    actions.FileSync: node_parsers.parse_file_sync,
+    actions.Installation: node_parsers.parse_installation,
+}
 
 
 @dataclass

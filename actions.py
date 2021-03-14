@@ -8,6 +8,7 @@ import pathlib
 import logging
 import shutil
 from datetime import datetime, timezone
+import subprocess
 
 import git
 import validators
@@ -294,10 +295,58 @@ class Installation(Action):
     TODO: Implement
     """
 
-    def execute(self, exec_context: ExecutionContext):
-        """See base class."""
-        raise NotImplementedError()
+    def __init__(
+        self,
+        check_command: str,
+        key: str,
+        install_command: Optional[str] = None,
+        dependency_keys: Optional[List[str]] = None,
+    ):
+        super().__init__(key=key, dependency_keys=dependency_keys)
+        self.install_command = install_command
+        self.check_command = check_command
+        # TODO: Consider allowing user interaction during install.
 
+    def _is_installed(self) -> bool:
+        return (
+            subprocess.run([arg for arg in self.check_command.split(" ")]).returncode
+            == 0
+        )
+
+    def _install(self) -> bool:
+        if self.install_command is not None:
+            return (
+                subprocess.run([arg for arg in self.install_command.split(" ")]).returncode
+                == 0
+            )
+        return True
+
+    def execute(self, exec_context: Optional[ExecutionContext] = None):
+        """See base class."""
+        if self._is_installed():
+            return
+
+        if not self._install():
+            utils.log_and_raise(
+                logger.error,
+                f"Failed to install Installation with key {self.key}",
+                ActionFailureException,
+                errors.AC_FAILED_TO_INSTALL,
+            )
+
+        if not self._is_installed():
+            if self.install_command is not None:
+                logger.warning(
+                    f"Installation with key {self.key} failed install check after"
+                    f"successful installation."
+                )
+                return
+            utils.log_and_raise(
+                logger.error,
+                f"'Check-only' installation with key {self.key} is not installed.",
+                ActionFailureException,
+                errors.AC_CHECK_ONLY_INSTALLATION_NOT_INSTALLED
+            )
 
 class EnvironmentCondition(object):
     """An condition of the environment specified by the user that is required for actions in this exection graph to run

@@ -26,6 +26,8 @@ AC_BAD_GITHUB_URL = "ac_bad_github_url"
 AC_BAD_FINAL_FILE_PATH = "ac_bad_final_file_path"
 AC_FAILED_TO_CLONE = "ac_failed_to_clone"
 AC_USER_STOPPED_EXECUTION = "ac_user_stopped_execution"
+AC_CHECK_ONLY_INSTALLATION_NOT_INSTALLED = "ac_check_only_installation_not_installed"
+AC_FAILED_TO_INSTALL = "ac_failed_to_install"
 UT_GET_MODIFIED_DATE_PATH_DOES_NOT_EXIST = "ut_get_modified_date_path_does_not_exist"
 
 

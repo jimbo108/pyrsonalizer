@@ -46,17 +46,101 @@ def mock_git_repo_raises(mocker):
     mock.side_effect = git.exc.GitCommandError("cmd", "status")
     return mock
 
+
 @pytest.fixture
 def mock_is_file_invalid(mocker):
     mock = mocker.patch("actions.pathlib.Path")
     mock.return_value.resolve.return_value.is_file.return_value = False
     return mock
 
+
 @pytest.fixture
 def mock_is_file_happy(mocker):
     mock = mocker.patch("actions.pathlib.Path")
     mock.return_value.resolve.return_value.is_file.return_value = True
     return mock
+
+
+@pytest.fixture
+def mock_subprocess_run_happy(mocker):
+    mock = mocker.patch("actions.subprocess.run")
+    mock.return_value.returncode = 0
+    return mock
+
+
+@pytest.fixture
+def mock_subprocess_run_failed(mocker):
+    mock = mocker.patch("actions.subprocess.run")
+    mock.return_value.return_code = 1
+    return mock
+
+
+@pytest.fixture
+def mock_is_installed_happy(mocker):
+    mock = mocker.patch("actions.Installation._is_installed")
+    mock.return_value = True
+    return mock
+
+
+@pytest.fixture
+def mock_is_installed_not_installed(mocker):
+    mock = mocker.patch("actions.Installation._is_installed")
+    mock.return_value = False
+    return mock
+
+
+class TestInstallation:
+    def test_check_only_not_installed__log_and_raise(
+        self,
+        mock_log_and_raise,
+        mock_is_installed_not_installed,
+    ):
+        test_check_command = "test check"
+        installation = actions.Installation(test_check_command, "1")
+        with pytest.raises(actions.ActionFailureException):
+            installation.execute()
+
+        call_args = mock_log_and_raise.call_args[0]
+        assert errors.AC_CHECK_ONLY_INSTALLATION_NOT_INSTALLED in call_args
+
+    def test_check_only_installed(self, mock_is_installed_happy):
+        test_check_command = "test check"
+        installation = actions.Installation(test_check_command, "1")
+        try:
+            installation.execute()
+        except BaseException:
+            pytest.fail()
+
+    def test_failed_install__log_and_raise(
+        self,
+        mock_is_installed_not_installed,
+        mock_log_and_raise,
+        mock_subprocess_run_failed,
+    ):
+        test_check_command = "test check"
+        test_install_command = "test install"
+        installation = actions.Installation(
+            test_check_command, "1", test_install_command
+        )
+        with pytest.raises(actions.ActionFailureException):
+            installation.execute()
+
+        call_args = mock_log_and_raise.call_args[0]
+        assert errors.AC_FAILED_TO_INSTALL in call_args
+
+    def test_successful_install(
+        self, mock_is_installed_not_installed, mock_subprocess_run_happy
+    ):
+        test_check_command = "test check"
+        test_install_command = "test install"
+        installation = actions.Installation(
+            test_check_command, "1", test_install_command
+        )
+        try:
+            installation.execute()
+        except BaseException:
+            pytest.fail()
+
 
 class TestGithubFileLocation:
     def test_invalid_url__raises(

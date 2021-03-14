@@ -13,6 +13,7 @@ pytest-mock = "^3.5.1"
 GitPython = "^3.1.14"
 validators = "^0.18.2"
 prompt-toolkit = "^3.0.16"
+distro = "^1.5.0"
 
 [tool.poetry.dev-dependencies]
 

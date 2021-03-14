@@ -1,6 +1,8 @@
 import os
+import sys
 from unittest import mock
 import pathlib
+import subprocess
 
 import e2e_utils
 from main import main as prog_main
@@ -62,8 +64,37 @@ def test_github_file_sync_existing_file__prompts():
     assert path.stat().st_size == 0
 
 
+@e2e_utils.e2e_test
+def test_installation_and_file_syncs__ubuntu():
+    args = ["--path", "./test-configs/ubuntu/inline_installation_and_file_sync.yml"]
+    prog_main(args)
+
+    assert os.path.exists(os.path.join(e2e_utils.TEST_DEST_DIR, TEST_FILE_ONE))
+    assert os.path.exists(os.path.join(e2e_utils.TEST_DEST_DIR, TEST_FILE_TWO))
+
+    assert subprocess.run(["/bin/bash", "-c", "command", "-v", "curl"])
+
+
+@e2e_utils.e2e_test
+def test_installation_and_file_syncs__macos():
+    args = ["--path", "./test-configs/macos/inline_installation_and_file_sync.yml"]
+    prog_main(args)
+
+    assert os.path.exists(os.path.join(e2e_utils.TEST_DEST_DIR, TEST_FILE_ONE))
+    assert os.path.exists(os.path.join(e2e_utils.TEST_DEST_DIR, TEST_FILE_TWO))
+
+    assert subprocess.run(["/bin/bash", "-c", "command", "-v", "curl"])
+
+
 if __name__ == '__main__':
     test_happy_path_local()
     test_happy_path_github()
     test_failed_dependency__does_not_proceed()
     test_github_file_sync_existing_file__prompts()
+
+    if sys.platform == "linux":
+        import distro
+        if distro.linux_distribution(full_distribution_name=False)[0] == 'ubuntu':
+            test_installation_and_file_syncs__ubuntu()
+    elif sys.platform == "darwin":
+        test_installation_and_file_syncs__macos()
