@@ -55,6 +55,7 @@ def parse_installation(
     file_sync_config: Dict[str, Union[str, bool, int]],
     exec_context: Optional[ExecutionContext] = None,
 ) -> actions.Installation:
+    """Creates an Installation object from configuration."""
     if any(x not in file_sync_config for x in REQUIRED_INSTALLATION_NODES):
         missing_nodes = filter(
             lambda x: x not in file_sync_config,
