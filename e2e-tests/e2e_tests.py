@@ -94,7 +94,7 @@ if __name__ == '__main__':
 
     if sys.platform == "linux":
         import distro
-        if distro.linux_distribution(full_distribution_name=False)[0] == 'ubuntu':
+        if distro.linux_distribution(full_distribution_name=False)[0] in ('ubuntu', 'debian'):
             test_installation_and_file_syncs__ubuntu()
     elif sys.platform == "darwin":
         test_installation_and_file_syncs__macos()
