@@ -12,10 +12,10 @@ file_syncs:
         - 3
 installations:
     - install_command: sudo apt install curl
-      check_command: command -v curl
+      check_command: which curl
       key: 3
       dependency:
         - 5
-    - check_command: command -v apt
+    - check_command: which apt
       key: 5
 pyrsonalizer_directory: ./test-directory/.pyrsonalizer
