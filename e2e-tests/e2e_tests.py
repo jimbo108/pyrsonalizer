@@ -92,8 +92,12 @@ if __name__ == '__main__':
     test_failed_dependency__does_not_proceed()
     test_github_file_sync_existing_file__prompts()
 
+    import distro
+
+    print(f"sys.platform: {sys.platform}")
+    print(f"distro.linux_distribution: {distro.linux_distribution(full_distribution_name=False)}")
+
     if sys.platform == "linux":
-        import distro
         if distro.linux_distribution(full_distribution_name=False)[0] == 'ubuntu':
             test_installation_and_file_syncs__ubuntu()
     elif sys.platform == "darwin":
